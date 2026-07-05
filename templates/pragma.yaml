@@ -1,0 +1,7 @@
+templates:
+  - id: pragma_read
+    tags: [pragma]
+    schema: empty
+    sql: "PRAGMA {name};"
+    slot_sets:
+      name: ["page_size", "encoding", "user_version", "application_id"]

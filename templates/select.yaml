@@ -1,0 +1,35 @@
+templates:
+  - id: select_expr
+    tags: [select, dml]
+    schema: one_table
+    sql: "SELECT {expr} FROM t;"
+    slot_sets:
+      expr: ["1", "a", "b", "a + 1", "abs(a)"]
+
+  - id: select_where
+    tags: [select, dml]
+    schema: one_table
+    sql: "SELECT a, b FROM t WHERE {pred};"
+    slot_sets:
+      pred: ["a = 1", "b = 'one'", "a IS NOT NULL", "b IS NULL", "a BETWEEN 1 AND 2"]
+
+  - id: select_order
+    tags: [select, dml]
+    schema: one_table
+    sql: "SELECT a FROM t ORDER BY {col};"
+    slot_sets:
+      col: ["a", "b", "a DESC"]
+
+  - id: select_join
+    tags: [select, dml, join]
+    schema: two_table
+    sql: "SELECT t1.a, t2.x FROM t1 INNER JOIN t2 ON {pred};"
+    slot_sets:
+      pred: ["t1.a = t2.x", "t1.b = t2.y"]
+
+  - id: select_aggregate
+    tags: [select, dml, aggregate]
+    schema: one_table
+    sql: "SELECT {agg} FROM t;"
+    slot_sets:
+      agg: ["count(*)", "sum(a)", "min(a)", "max(a)", "group_concat(b)"]

@@ -1,0 +1,11 @@
+noise:
+  fn:sqlite_version: "Version strings differ by engine build"
+  fn:sqlite_source_id: "Source IDs differ by engine build"
+  fn:zeroblob: "Blob encoding differs in list-mode CLI output"
+  pragma:function_list: "Inventory row counts differ; use metadata_diff.json"
+  pragma:module_list: "Registered modules differ between engines"
+  pragma:journal_mode: "Default journal mode may differ"
+  pragma:locking_mode: "Default locking mode may differ"
+  pragma:cache_spill: "Documented partial in COMPAT.md"
+  pragma:empty_result_callbacks: "Shell callback setting; low signal"
+  pragma:wal_checkpoint: "Checkpoint state differs on fresh :memory: DBs"

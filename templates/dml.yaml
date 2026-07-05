@@ -1,0 +1,22 @@
+templates:
+  - id: insert_values
+    tags: [insert, dml]
+    schema: one_table
+    sql: "INSERT INTO t VALUES ({literals}); SELECT count(*) FROM t;"
+    slot_sets:
+      literals: ["4, 'four'", "5, NULL", "NULL, 'null-b'"]
+
+  - id: update_set
+    tags: [update, dml]
+    schema: one_table
+    sql: "UPDATE t SET {assign} WHERE {pred}; SELECT a, b FROM t WHERE {pred};"
+    slot_sets:
+      assign: ["b = 'updated'", "a = a + 10"]
+      pred: ["a = 1", "b IS NOT NULL"]
+
+  - id: delete_where
+    tags: [delete, dml]
+    schema: one_table
+    sql: "DELETE FROM t WHERE {pred}; SELECT count(*) FROM t;"
+    slot_sets:
+      pred: ["a = 3", "b IS NULL"]

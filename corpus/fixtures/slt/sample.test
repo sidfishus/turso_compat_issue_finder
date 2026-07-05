@@ -1,0 +1,34 @@
+# Minimal sqllogictest fixture for local parser checks.
+
+statement ok
+CREATE TABLE tab0(col0 INTEGER, col1 INTEGER, col2 INTEGER);
+
+statement ok
+INSERT INTO tab0 VALUES(97, 1, 99);
+
+statement ok
+INSERT INTO tab0 VALUES(15, 81, 47);
+
+query I
+SELECT col0 FROM tab0 ORDER BY col0;
+----
+15
+97
+
+query II
+SELECT col0, col1 FROM tab0 ORDER BY col0;
+----
+15	81
+97	1
+
+skipif sqlite
+query I
+SELECT 0;
+----
+0
+
+onlyif mysql
+query I
+SELECT 1;
+----
+1

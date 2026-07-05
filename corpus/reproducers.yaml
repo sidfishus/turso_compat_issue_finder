@@ -1,0 +1,13 @@
+# Paste GitHub issue reproducers here. Each entry becomes a compatibility check case.
+#
+# Import from an issue URL:
+#   .venv/bin/python -m generate.extract_corpus import-issue https://github.com/tursodatabase/turso/issues/1234
+#
+reproducers:
+  - id: example-alter-rename
+    source: manual
+    tags: [ddl, alter]
+    setup: |
+      CREATE TABLE t(a INT, b TEXT);
+      INSERT INTO t VALUES (1, 'one');
+    sql: "SELECT a, b FROM t WHERE a = 1;"

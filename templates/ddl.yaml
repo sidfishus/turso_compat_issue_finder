@@ -1,0 +1,22 @@
+templates:
+  - id: create_table
+    tags: [ddl, create]
+    schema: empty
+    sql: "CREATE TABLE tt ({col_defs}); INSERT INTO tt DEFAULT VALUES; SELECT count(*) FROM tt;"
+    slot_sets:
+      col_defs:
+        - "id INTEGER PRIMARY KEY"
+        - "a INT NOT NULL, b TEXT"
+        - "a INT UNIQUE, b TEXT CHECK(b != '')"
+
+  - id: create_index
+    tags: [ddl, index]
+    schema: one_table
+    sql: "CREATE INDEX idx_tt ON t({cols}); SELECT a FROM t WHERE a = 1;"
+    slot_sets:
+      cols: ["a", "b", "a, b"]
+
+  - id: alter_rename_column
+    tags: [ddl, alter]
+    schema: one_table
+    sql: "ALTER TABLE t RENAME COLUMN b TO c; SELECT c FROM t LIMIT 1;"

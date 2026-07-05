@@ -1,0 +1,158 @@
+# Targeted SQL for COMPAT.md ❌ / 🚧 rows (SQL query language only).
+# Keys match the subject column in COMPAT.md tables.
+# Auto-generated cases cover PRAGMA rows; this file covers statements/expressions/functions.
+
+"WITH clause":
+  setup: |
+    CREATE TABLE t(a INT, b INT);
+    INSERT INTO t VALUES (1, 2), (2, 3);
+  sql: |
+    WITH RECURSIVE c(x) AS (
+      SELECT 1
+      UNION ALL
+      SELECT x + 1 FROM c WHERE x < 3
+    )
+    SELECT x FROM c ORDER BY x;
+
+"WINDOW functions":
+  setup: |
+    CREATE TABLE t(x INT);
+    INSERT INTO t VALUES (1), (2), (3);
+  sql: SELECT rank() OVER (ORDER BY x) FROM t;
+
+"GENERATED":
+  sql: CREATE TABLE t(a INT GENERATED ALWAYS AS (a + 1) VIRTUAL);
+
+"WITHOUT ROWID":
+  sql: CREATE TABLE t(a INT PRIMARY KEY, b TEXT) WITHOUT ROWID;
+
+"CREATE TRIGGER ... INSTEAD OF":
+  setup: |
+    CREATE TABLE base(a INT);
+    CREATE VIEW v AS SELECT a FROM base;
+  sql: |
+    CREATE TRIGGER tr INSTEAD OF INSERT ON v BEGIN
+      INSERT INTO base(a) VALUES (NEW.a);
+    END;
+
+"CREATE VIEW IF NOT EXISTS":
+  setup: CREATE VIEW v AS SELECT 1 AS x;
+  sql: CREATE VIEW IF NOT EXISTS v AS SELECT 2 AS x;
+
+"VACUUM":
+  sql: VACUUM;
+
+"schema.table.column":
+  setup: |
+    CREATE TABLE t(a INT);
+    INSERT INTO t VALUES (1);
+  sql: SELECT main.t.a FROM t;
+
+"binary operator":
+  setup: SELECT 7 AS x;
+  sql: SELECT x % 3;
+
+"agg() FILTER (WHERE ...)":
+  setup: |
+    CREATE TABLE t(g INT, v INT);
+    INSERT INTO t VALUES (1, 10), (1, 20), (2, 30);
+  sql: SELECT sum(v) FILTER (WHERE v > 15) FROM t GROUP BY g;
+
+"... OVER (...)":
+  setup: |
+    CREATE TABLE t(x INT);
+    INSERT INTO t VALUES (1), (2), (3);
+  sql: SELECT lag(x, 1) OVER (ORDER BY x) FROM t;
+
+"COLLATE":
+  sql: SELECT 'a' COLLATE nocase;
+
+"(NOT) MATCH":
+  setup: |
+    CREATE VIRTUAL TABLE docs USING fts5(content);
+    INSERT INTO docs(content) VALUES ('hello world');
+  sql: SELECT content FROM docs WHERE content MATCH 'hello';
+
+"x <operator> (SELECT...))":
+  setup: |
+    CREATE TABLE t(a INT, b INT);
+    INSERT INTO t VALUES (1, 2);
+  sql: SELECT * FROM t WHERE (a, b) = (SELECT 1, 2);
+
+"changes()":
+  setup: |
+    CREATE TABLE t(a INT);
+    INSERT INTO t VALUES (1);
+  sql: UPDATE t SET a = 2; SELECT changes();
+
+"total_changes()":
+  setup: |
+    CREATE TABLE t(a INT);
+    INSERT INTO t VALUES (1);
+  sql: UPDATE t SET a = 2; SELECT total_changes();
+
+"load_extension(X)":
+  sql: SELECT load_extension('noop');
+
+"load_extension(X,Y)":
+  sql: SELECT load_extension('noop', 'entry');
+
+"sqlite_compileoption_get(N)":
+  sql: SELECT sqlite_compileoption_get(0);
+
+"sqlite_compileoption_used(X)":
+  sql: SELECT sqlite_compileoption_used('THREADSAFE');
+
+"sqlite_offset(X)":
+  setup: |
+    CREATE TABLE t(a INT);
+    INSERT INTO t VALUES (1);
+  sql: SELECT sqlite_offset(a) FROM t;
+
+"json_tree(json)":
+  sql: SELECT key FROM json_tree('{"a":1}');
+
+"json_tree(json,path)":
+  sql: SELECT key FROM json_tree('{"a":{"b":1}}', '$.a');
+
+"rank()":
+  setup: |
+    CREATE TABLE t(x INT);
+    INSERT INTO t VALUES (1), (2), (3);
+  sql: SELECT rank() OVER (ORDER BY x) FROM t;
+
+"dense_rank()":
+  setup: |
+    CREATE TABLE t(x INT);
+    INSERT INTO t VALUES (1), (2), (3);
+  sql: SELECT dense_rank() OVER (ORDER BY x) FROM t;
+
+"percent_rank()":
+  setup: |
+    CREATE TABLE t(x INT);
+    INSERT INTO t VALUES (1), (2), (3);
+  sql: SELECT percent_rank() OVER (ORDER BY x) FROM t;
+
+"lag(X,Y)":
+  setup: |
+    CREATE TABLE t(x INT);
+    INSERT INTO t VALUES (1), (2), (3);
+  sql: SELECT lag(x, 1) OVER (ORDER BY x) FROM t;
+
+"lead(X,Y)":
+  setup: |
+    CREATE TABLE t(x INT);
+    INSERT INTO t VALUES (1), (2), (3);
+  sql: SELECT lead(x, 1) OVER (ORDER BY x) FROM t;
+
+"first_value(X)":
+  setup: |
+    CREATE TABLE t(x INT);
+    INSERT INTO t VALUES (1), (2), (3);
+  sql: SELECT first_value(x) OVER (ORDER BY x) FROM t;
+
+"last_value(X)":
+  setup: |
+    CREATE TABLE t(x INT);
+    INSERT INTO t VALUES (1), (2), (3);
+  sql: SELECT last_value(x) OVER (ORDER BY x) FROM t;

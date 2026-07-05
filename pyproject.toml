@@ -1,0 +1,20 @@
+[project]
+name = "turso-compat-issue-finder"
+version = "0.1.0"
+description = "Find SQLite vs Turso compatibility differences"
+requires-python = ">=3.11"
+dependencies = ["pyyaml>=6.0"]
+
+[project.scripts]
+turso-compat-smoke = "run.smoke:main"
+turso-compat-metadata = "inventory.fetch_metadata:main"
+turso-compat-check = "inventory.run_checks:main"
+turso-compat-triage = "inventory.retriage:main"
+turso-compat-corpus = "generate.extract_corpus:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["run", "inventory", "generate"]
