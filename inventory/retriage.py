@@ -5,6 +5,7 @@ from pathlib import Path
 
 from inventory.triage import print_triage_summary, write_triage_report
 from run.cases import CheckResult
+from run.checklist import write_discrepancies_checklist
 from run.reporting import write_summary_markdown
 
 
@@ -35,9 +36,13 @@ def main() -> int:
     summary_path = Path("report/summary.md")
     triage_report = write_triage_report(results, triage_path)
     write_summary_markdown(results, summary_path, triage_report=triage_report)
+    mismatches = [result for result in results if result.diff_kind is not None]
+    write_discrepancies_checklist(results, Path("report/discrepancies.csv"), triage_report=triage_report)
+    write_discrepancies_checklist(results, Path("report/discrepancies.md"), triage_report=triage_report)
     print_triage_summary(triage_report)
     print(f"triage written to {triage_path}")
     print(f"summary written to {summary_path}")
+    print(f"checklist written to report/discrepancies.csv and report/discrepancies.md ({len(mismatches)} mismatches in last run)")
     return 0
 
 

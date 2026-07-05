@@ -22,6 +22,37 @@ known — not by silently ignoring diff dimensions up front.
 
 ---
 
+## Current status (Jul 2026)
+
+Phases 0–4 and issue-tracking workflow are **done**. The tool is operational end-to-end.
+
+| Metric | Value |
+|--------|-------|
+| Manifest cases (corpus) | 10,632 |
+| Cases tested (ledger) | ~1,220 |
+| Matches | ~1,180 |
+| Mismatches | 39 |
+| Known issues tracked | see `inventory/known_issues.yaml` |
+| Actionable / undocumented | 25 (see `report/discrepancies.md`) |
+| Untested manifest cases | ~9,600 |
+
+**What has been run:** metadata + function/pragma auto-cases (~145), YAML templates (~40), and a partial corpus pass — mostly Spider (~1,017 of 4,483), plus smoke samples from BIRD, SchemaPile, compat gaps, and SLT.
+
+**Filed bugs:** tracked in `inventory/known_issues.yaml`; checklist in `report/discrepancies.md`.
+
+**Active work:** triage remaining mismatches via `report/discrepancies.md` → group into `known_issues.yaml` → re-triage to reduce noise; continue resumable corpus runs (`TURSO_COMPAT_RESUME=1`).
+
+**Not started:** full manifest sweep (~10.6k corpus cases); full sqllogictest ingest (2 sample cases only).
+
+Check progress anytime:
+
+```bash
+.venv/bin/python -m generate.extract_corpus status
+TURSO_COMPAT_COMPAT_MD=/path/to/turso/COMPAT.md .venv/bin/python -m inventory.checklist
+```
+
+---
+
 ## GitHub interaction policy
 
 **Never automatically post to GitHub.** This tool helps you find, triage, and
@@ -219,17 +250,21 @@ turso_compat_issue_finder/
     fetch_metadata.py     # PRAGMA function_list / pragma_list diff
     functions.py          # function SQL generation from metadata
     run_checks.py         # orchestrates all cases + writes reports
-    triage.py             # classify mismatches by area / COMPAT.md / noise
-    retriage.py           # re-triage from existing behavior_diff.json
+    triage.py             # classify mismatches by area / COMPAT.md / noise / known issues
+    retriage.py           # re-triage from ledger without re-running checks
+    checklist.py          # CLI: regenerate discrepancy checklist from ledger
+    known_issues.py       # load known_issues.yaml → case→issue lookup
     compat_md.py          # parse Turso COMPAT.md status tables
     github_issues.py      # cross-ref open tursodatabase/turso issues
     skip_list.yaml        # curated noise cases to de-prioritize
+    known_issues.yaml     # grouped GitHub issues for recurring mismatch patterns
   run/
     cases.py              # CheckCase / CheckResult dataclasses
     config.py             # engine paths via env vars
     exec.py               # subprocess sqlite3 + tursodb
-    compare.py            # outcome + result comparison
+    compare.py            # strict outcome + stderr + ordered row comparison
     reporting.py          # markdown summary writer
+    checklist.py          # discrepancies.csv / discrepancies.md writer
     store.py              # manifest load + results.jsonl persistence (resume)
     smoke.py              # SELECT 1 smoke test
   generate/
@@ -261,11 +296,13 @@ turso_compat_issue_finder/
     dml.yaml              # INSERT, UPDATE, DELETE
     ddl.yaml              # CREATE TABLE, CREATE INDEX, ALTER
     pragma.yaml           # read-only PRAGMA templates
-  report/                 # generated at run time
+  report/                 # generated at run time (gitignored)
     metadata_diff.json
     behavior_diff.json
     triage.json
     summary.md
+    discrepancies.csv     # mismatch checklist with issue # / problem columns
+    discrepancies.md
 ```
 
 **Setup (once):**
@@ -282,6 +319,7 @@ TURSO_COMPAT_TURSODB=/path/to/tursodb .venv/bin/python -m run.smoke
 TURSO_COMPAT_TURSODB=/path/to/tursodb .venv/bin/python -m inventory.fetch_metadata
 TURSO_COMPAT_TURSODB=/path/to/tursodb .venv/bin/python -m inventory.run_checks
 TURSO_COMPAT_COMPAT_MD=/path/to/turso/COMPAT.md .venv/bin/python -m inventory.retriage
+TURSO_COMPAT_COMPAT_MD=/path/to/turso/COMPAT.md .venv/bin/python -m inventory.checklist
 .venv/bin/python -m generate.extract_corpus stats
 .venv/bin/python -m generate.extract_corpus parse path/to/file.sqltest
 .venv/bin/python -m generate.extract_corpus parse-slt path/to/file.test
@@ -307,6 +345,8 @@ committed).
 | `report/behavior_diff.json` | `inventory/run_checks.py` | Behavioral comparison: metadata checks + template cases |
 | `report/triage.json` | `inventory/triage.py` | Mismatches grouped by area and triage class, with COMPAT.md + GitHub links |
 | `report/summary.md` | `inventory/run_checks.py` | Human-readable report; undocumented/actionable cases first |
+| `report/discrepancies.csv` | `inventory/checklist.py` | Spreadsheet checklist: id, sql, diff, issue #, problem summary |
+| `report/discrepancies.md` | `inventory/checklist.py` | Same checklist in markdown table form |
 
 ### `metadata_diff.json` shape
 
@@ -374,7 +414,7 @@ One record per test case. Mismatches have a non-null `diff_kind`.
 | `sql` | Query under test — copy/paste to reproduce |
 | `setup` | Schema preset SQL run before `sql` (template cases); empty for fn/pragma cases |
 | `tags` | Area tags for filtering (`function`, `pragma`; later `ddl`, `dml`, …) |
-| `diff_kind` | `null` = match; `outcome_mismatch` = one ok, one error; `result_mismatch` = both ok, different rows |
+| `diff_kind` | `null` = match; `outcome_mismatch` = one ok, one error; `error_message_mismatch` = both error, different stderr; `result_mismatch` = both ok, different rows; `stderr_mismatch` = both ok, same rows, different stderr |
 | `sqlite` / `turso` | `outcome` (`ok` \| `error`), parsed `rows` (list mode), `stderr` |
 
 ### Triage workflow
@@ -432,11 +472,23 @@ One record per test case. Mismatches have a non-null `diff_kind`.
 |-------|---------|
 | `undocumented` | COMPAT.md says ✅ but behavior differs — highest priority |
 | `actionable` | No COMPAT.md entry; worth investigating |
+| `known_issue` | Mismatch already filed — see `inventory/known_issues.yaml` (issue open) |
+| `known_issue_closed` | Tracked issue closed; re-run to verify fix |
 | `known_partial` | COMPAT.md 🚧 Partial |
 | `known_gap` | COMPAT.md ❌ No |
 | `noise` | Listed in `inventory/skip_list.yaml` (version strings, inventory pragmas, etc.) |
 
 Re-triage without re-running checks: `python3 -m inventory.retriage`
+
+Refresh the discrepancy checklist from the full results ledger (all mismatches tested so far):
+
+```bash
+TURSO_COMPAT_COMPAT_MD=/path/to/turso/COMPAT.md .venv/bin/python -m inventory.checklist
+```
+
+When you file or recognize a recurring bug, add a `problems:` entry in `inventory/known_issues.yaml`
+and list every matching case id under `cases:`. Re-run checklist/retriage — those rows get issue
+# and summary columns filled in, and drop out of the actionable count.
 
 ### Expected noise (don't file bugs blindly)
 
@@ -489,7 +541,7 @@ Re-triage without re-running checks: `python3 -m inventory.retriage`
 | `corpus/manifest/*.jsonl` | Stable inventory: spider (4,483), bird (917), schemapile (5,000), compat (230), slt (sample — expand via `ingest-slt`) |
 | `state/results.jsonl` | Append-only checklist: tested / match / mismatch per case id |
 
-**Operational status:** manifests built (~10.6k cases); full corpus run not started. Compare manifest vs ledger with `extract_corpus status`. Resume is on by default (`TURSO_COMPAT_RESUME=1`; `--no-resume` to force re-run).
+**Operational status:** manifests built (10,632 corpus cases); partial run in progress (~1,220 tested, 39 mismatches). Compare manifest vs ledger with `extract_corpus status`. Resume is on by default (`TURSO_COMPAT_RESUME=1`; `--no-resume` to force re-run). Long runs: use `--source spider` (or `bird`, `schemapile`, etc.) to scope; crash-safe via append-only `state/results.jsonl`.
 
 ```bash
 .venv/bin/python -m generate.extract_corpus download-spider
@@ -546,6 +598,15 @@ TURSO_COMPAT_TURSODB=/path/to/tursodb .venv/bin/python -m inventory.run_checks -
 - [x] COMPAT.md ❌ / 🚧 rows as targeted templates (`--source compat`)
 - [x] SLT manifest ingest for resumable sqllogictest runs (`ingest-slt`; full corpus not ingested yet — 2 sample cases)
 
+### Phase 5 — Issue tracking and noise reduction
+
+- [x] Strict comparison: alert on all diff dimensions (outcome, error text, rows, stderr)
+- [x] `inventory/known_issues.yaml` — group case ids under GitHub issue + problem summary
+- [x] Triage classes `known_issue` / `known_issue_closed`
+- [x] `report/discrepancies.csv` + `report/discrepancies.md` checklist (issue #, status, problem columns)
+- [ ] Triage remaining actionable/undocumented mismatches into `known_issues.yaml`
+- [ ] Continue resumable full corpus run (~9,600 manifest cases untested)
+
 ---
 
 ## Pitfalls
@@ -580,15 +641,30 @@ templates + introspection — not a new fuzzer.
 - **DB mode:** `:memory:` for metadata/templates; file DBs per case for Spider/BIRD ✓; ATTACH/VACUUM-specific cases still TBD
 - **Parallelism:** serial first; parallel case runs later
 - **Issue linking:** `gh search issues` via `inventory/github_issues.py` ✓ (read-only cross-ref; never auto-file)
+- **Known-issue dedup:** manual grouping in `inventory/known_issues.yaml` ✓; re-triage via `inventory.retriage` / `inventory.checklist`
 
 ---
 
-## First milestone (target: 1–2 sessions)
+## Milestones
+
+### Milestone 1 — Scaffold + first diffs ✓
 
 1. [x] Metadata diff (`function_list`, `pragma_list`)
 2. [x] Auto `SELECT func(...)` for every function in the intersection
-3. [x] Ten hand-written DDL/DML templates
+3. [x] Hand-written DDL/DML/SELECT templates
 4. [x] JSON report with `diff_kind` per case
 
-Success = running one command produces a list of reproducible diffs you can
-inspect before picking a Turso issue to fix.
+**Achieved:** one command produces reproducible diffs; compatibility bugs found and filed via `known_issues.yaml`.
+
+### Milestone 2 — Corpus at scale (in progress)
+
+1. [x] External corpora ingested (Spider, BIRD, SchemaPile, compat gaps)
+2. [x] Resumable ledger + manifest status CLI
+3. [~] Full corpus run (~12% tested)
+4. [ ] Full sqllogictest ingest
+
+### Milestone 3 — Triage loop (in progress)
+
+1. [x] Discrepancy checklist with issue tracking columns
+2. [~] Group recurring mismatches into `known_issues.yaml`
+3. [ ] Actionable count near zero (known issues + noise + COMPAT gaps accounted for)

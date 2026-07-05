@@ -10,6 +10,7 @@ import yaml
 
 from inventory.compat_md import parse_compat_md, subject_for_case_id
 from inventory.github_issues import issues_for_case
+from inventory.known_issues import CaseIssueLink, load_known_issues
 from run.cases import CheckResult
 
 TAG_TO_AREA = {
@@ -52,6 +53,11 @@ class TriageEntry:
     setup: str
     tags: tuple[str, ...]
     github_issues: tuple[dict[str, str], ...] = ()
+    problem_id: str | None = None
+    issue: int | None = None
+    issue_url: str | None = None
+    issue_status: str | None = None
+    problem_summary: str | None = None
 
 
 def load_skip_list(path: Path = SKIP_LIST_PATH) -> dict[str, str]:
@@ -89,14 +95,19 @@ def classify_result(
     *,
     skip_list: dict[str, str],
     compat_entries: dict[str, dict[str, str]],
+    case_issues: dict[str, CaseIssueLink],
     fetch_github: bool,
 ) -> TriageEntry:
     subject = subject_for_case_id(result.id)
     compat = compat_entries.get(subject)
     compat_status = compat["status"] if compat else None
     compat_note = compat["note"] if compat else None
+    known = case_issues.get(result.id)
 
-    if result.id in skip_list:
+    if known is not None:
+        triage_class = "known_issue" if known.issue_status == "open" else "known_issue_closed"
+        reason = known.summary or f"Tracked under #{known.issue}"
+    elif result.id in skip_list:
         triage_class = "noise"
         reason = skip_list[result.id]
     elif compat_status == "no":
@@ -128,6 +139,11 @@ def classify_result(
         setup=result.setup,
         tags=result.tags,
         github_issues=github_issues,
+        problem_id=known.problem_id if known else None,
+        issue=known.issue if known else None,
+        issue_url=known.issue_url if known else None,
+        issue_status=known.issue_status if known else None,
+        problem_summary=known.summary if known else None,
     )
 
 
@@ -138,6 +154,7 @@ def triage_results(
 ) -> list[TriageEntry]:
     mismatches = [result for result in results if result.diff_kind is not None]
     skip_list = load_skip_list()
+    _, case_issues = load_known_issues()
     compat_path = compat_md_path()
     compat_entries = parse_compat_md(compat_path) if compat_path else {}
     if fetch_github is None:
@@ -148,6 +165,7 @@ def triage_results(
             result,
             skip_list=skip_list,
             compat_entries=compat_entries,
+            case_issues=case_issues,
             fetch_github=fetch_github,
         )
         for result in mismatches
@@ -168,11 +186,15 @@ def build_triage_report(entries: list[TriageEntry]) -> dict[str, object]:
         for entry in entries
         if entry.triage_class in {"actionable", "undocumented"}
     )
+    known_issue_count = sum(
+        1 for entry in entries if entry.triage_class == "known_issue"
+    )
 
     return {
         "summary": {
             "mismatches": len(entries),
             "actionable": actionable_count,
+            "known_issue": known_issue_count,
             "by_area": {area: len(items) for area, items in sorted(by_area.items())},
             "by_triage_class": {
                 triage_class: len(items)
@@ -197,7 +219,8 @@ def print_triage_summary(report: dict[str, object]) -> None:
     summary = report["summary"]
     print(
         f"triage: {summary['mismatches']} mismatches, "
-        f"{summary['actionable']} actionable/undocumented"
+        f"{summary['actionable']} actionable/undocumented, "
+        f"{summary.get('known_issue', 0)} already reported"
     )
     by_class = summary["by_triage_class"]
     for triage_class, count in sorted(by_class.items()):

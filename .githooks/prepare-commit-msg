@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Strip Cursor attribution trailers from commit messages.
+MSG_FILE=$1
+sed -i \
+  -e '/^Co-authored-by: Cursor/d' \
+  -e '/^Made-with: Cursor/d' \
+  -e '/^Made with Cursor/d' \
+  "$MSG_FILE"

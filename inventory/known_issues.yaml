@@ -1,0 +1,54 @@
+# Group related compatibility mismatches under one GitHub issue.
+#
+# When several SQL cases hit the same root cause, list them under one problem
+# so triage and report/discrepancies.* do not treat each as a new bug.
+#
+# Fields:
+#   issue   - GitHub issue number (tursodatabase/turso)
+#   status  - open | closed (closed = issue merged/fixed; re-run to verify)
+#   summary - brief explanation of the underlying problem
+#   cases   - case ids from state/results.jsonl / corpus manifests
+#
+# Add cases as you review mismatches. Re-triage after edits:
+#   .venv/bin/python -m inventory.retriage
+
+problems:
+  min_max_bare_column:
+    issue: 5545
+    status: open
+    summary: >
+      Single min()/max() with bare columns: SQLite returns bare values from the
+      row containing the extremum; Turso picks another row (often the first).
+    cases:
+      - spider:dev:concert_singer:16
+      - spider:dev:world_1:816
+
+  json_group_object_numeric_label:
+    issue: 7757
+    status: open
+    summary: >
+      json_group_object() fails with "malformed JSON" when label is INTEGER or REAL;
+      SQLite accepts numeric labels and returns valid JSON (e.g. {"1":2}).
+    cases:
+      - fn:json_group_object
+
+  jsonb_group_object_numeric_label:
+    issue: 7759
+    status: open
+    summary: >
+      jsonb_group_object() returns wrong JSONB bytes when label is INTEGER or REAL;
+      SQLite accepts numeric labels and returns valid JSONB (e.g. {"1":2}).
+    cases:
+      - fn:jsonb_group_object
+
+  json_modify_odd_arg_validation:
+    issue: 7758
+    status: open
+    summary: >
+      json_insert/json_replace (and jsonb variants) accept path-only calls;
+      SQLite requires an odd argument count and errors.
+    cases:
+      - fn:json_insert
+      - fn:json_replace
+      - fn:jsonb_insert
+      - fn:jsonb_replace

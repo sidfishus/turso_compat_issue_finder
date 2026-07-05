@@ -14,6 +14,7 @@ from run.cases import CheckCase, CheckResult, case_sql
 from run.compare import CaseComparison, DiffKind, compare_exec
 from run.config import Config
 from run.exec import Engine, run_sql
+from run.checklist import write_discrepancies_checklist
 from run.reporting import write_summary_markdown
 from run.store import (
     append_result,
@@ -210,11 +211,22 @@ def main(argv: list[str] | None = None) -> int:
     write_report(results, report_path)
     triage_report = write_triage_report(results, triage_path)
     write_summary_markdown(results, summary_path, triage_report=triage_report)
+    write_discrepancies_checklist(
+        [result for result in results if result.diff_kind is not None],
+        Path("report/discrepancies.csv"),
+        triage_report=triage_report,
+    )
+    write_discrepancies_checklist(
+        [result for result in results if result.diff_kind is not None],
+        Path("report/discrepancies.md"),
+        triage_report=triage_report,
+    )
     print_summary(results)
     print_triage_summary(triage_report)
     print(f"report written to {report_path}")
     print(f"triage written to {triage_path}")
     print(f"summary written to {summary_path}")
+    print(f"checklist written to report/discrepancies.csv and report/discrepancies.md")
     print(f"results ledger: state/results.jsonl")
     return 1 if triage_report["summary"]["actionable"] else 0
 

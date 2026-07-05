@@ -36,7 +36,15 @@ def write_summary_markdown(
         lines.append("No mismatches.")
     elif triage_report:
         entries_by_id = {entry["id"]: entry for entry in triage_report["entries"]}
-        priority_classes = ["undocumented", "actionable", "known_partial", "known_gap", "noise"]
+        priority_classes = [
+            "undocumented",
+            "actionable",
+            "known_issue",
+            "known_issue_closed",
+            "known_partial",
+            "known_gap",
+            "noise",
+        ]
         grouped: dict[str, list[CheckResult]] = defaultdict(list)
         for result in mismatches:
             entry = entries_by_id.get(result.id, {})
@@ -76,10 +84,15 @@ def _format_case(result: CheckResult, triage_entry: dict[str, Any] | None) -> li
     ]
     if triage_entry:
         lines.append(f"- Triage: `{triage_entry.get('triage_class')}` — {triage_entry.get('reason', '')}")
+        if triage_entry.get("issue"):
+            issue_status = triage_entry.get("issue_status") or "open"
+            lines.append(
+                f"- Issue: [#{triage_entry['issue']}]({triage_entry.get('issue_url')}) ({issue_status})"
+            )
         if triage_entry.get("compat_status"):
             lines.append(f"- COMPAT.md: `{triage_entry['compat_status']}`")
         if triage_entry.get("github_issues"):
-            lines.append("- GitHub issues:")
+            lines.append("- GitHub search:")
             for issue in triage_entry["github_issues"]:
                 lines.append(f"  - [{issue['title']}]({issue['url']})")
     lines.append("")

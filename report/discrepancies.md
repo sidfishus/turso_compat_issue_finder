@@ -1,0 +1,50 @@
+# Discrepancy checklist
+
+Track sqlite3 vs tursodb mismatches. Assign cases to problems in
+`inventory/known_issues.yaml`, then re-triage.
+
+- Mismatches: 39
+- Actionable / undocumented: 21
+- Already reported: 8
+
+| id | diff | triage | issue | status | problem | summary | sql |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `compat:vacuum` | outcome_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `VACUUM;` |
+| `compat:window_functions` | outcome_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT rank() OVER (ORDER BY x) FROM t;` |
+| `compat:with_clause` | outcome_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `WITH RECURSIVE c(x) AS ( SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 3 ) SELECT x FROM c ORDER BY x;` |
+| `fn:json_group_object` | outcome_mismatch | known_issue | [#7757](https://github.com/tursodatabase/turso/issues/7757) | open | `json_group_object_numeric_label` | json_group_object() fails with "malformed JSON" when label is INTEGER or REAL; SQLite accepts numeric labels and returns valid JSON (e.g. {"1":2}). | `SELECT json_group_object(c1, c2) FROM (SELECT 1 AS c1, 2 AS c2, 'a' AS c3);` |
+| `fn:json_insert` | outcome_mismatch | known_issue | [#7758](https://github.com/tursodatabase/turso/issues/7758) | open | `json_modify_odd_arg_validation` | json_insert/json_replace (and jsonb variants) accept path-only calls; SQLite requires an odd argument count and errors. | `SELECT json_insert('{}', '$.a');` |
+| `fn:json_patch` | error_message_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT json_patch('{}', '$.a');` |
+| `fn:json_replace` | outcome_mismatch | known_issue | [#7758](https://github.com/tursodatabase/turso/issues/7758) | open | `json_modify_odd_arg_validation` | json_insert/json_replace (and jsonb variants) accept path-only calls; SQLite requires an odd argument count and errors. | `SELECT json_replace('{}', '$.a');` |
+| `fn:json_set` | error_message_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT json_set('{}', '$.a');` |
+| `fn:jsonb_group_object` | result_mismatch | known_issue | [#7759](https://github.com/tursodatabase/turso/issues/7759) | open | `jsonb_group_object_numeric_label` | jsonb_group_object() returns wrong JSONB bytes when label is INTEGER or REAL; SQLite accepts numeric labels and returns valid JSONB (e.g. {"1":2}). | `SELECT jsonb_group_object(c1, c2) FROM (SELECT 1 AS c1, 2 AS c2, 'a' AS c3);` |
+| `fn:jsonb_insert` | outcome_mismatch | known_issue | [#7758](https://github.com/tursodatabase/turso/issues/7758) | open | `json_modify_odd_arg_validation` | json_insert/json_replace (and jsonb variants) accept path-only calls; SQLite requires an odd argument count and errors. | `SELECT jsonb_insert('{}', '$.a');` |
+| `fn:jsonb_patch` | error_message_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT jsonb_patch('{}', '$.a');` |
+| `fn:jsonb_replace` | outcome_mismatch | known_issue | [#7758](https://github.com/tursodatabase/turso/issues/7758) | open | `json_modify_odd_arg_validation` | json_insert/json_replace (and jsonb variants) accept path-only calls; SQLite requires an odd argument count and errors. | `SELECT jsonb_replace('{}', '$.a');` |
+| `fn:jsonb_set` | error_message_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT jsonb_set('{}', '$.a');` |
+| `fn:likelihood` | error_message_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT likelihood(1, 'a');` |
+| `fn:load_extension` | error_message_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT load_extension(1);` |
+| `fn:sqlite_source_id` | result_mismatch | noise | — | — | — | Source IDs differ by engine build | `SELECT sqlite_source_id();` |
+| `fn:sqlite_version` | result_mismatch | noise | — | — | — | Version strings differ by engine build | `SELECT sqlite_version();` |
+| `fn:zeroblob` | result_mismatch | noise | — | — | — | Blob encoding differs in list-mode CLI output | `SELECT zeroblob(1);` |
+| `pragma:cache_spill` | result_mismatch | noise | — | — | — | Documented partial in COMPAT.md | `PRAGMA cache_spill;` |
+| `pragma:empty_result_callbacks` | result_mismatch | noise | — | — | — | Shell callback setting; low signal | `PRAGMA empty_result_callbacks;` |
+| `pragma:function_list` | result_mismatch | noise | — | — | — | Inventory row counts differ; use metadata_diff.json | `PRAGMA function_list;` |
+| `pragma:journal_mode` | result_mismatch | noise | — | — | — | Default journal mode may differ | `PRAGMA journal_mode;` |
+| `pragma:locking_mode` | result_mismatch | noise | — | — | — | Default locking mode may differ | `PRAGMA locking_mode;` |
+| `pragma:module_list` | result_mismatch | noise | — | — | — | Registered modules differ between engines | `PRAGMA module_list;` |
+| `pragma:wal_checkpoint` | result_mismatch | noise | — | — | — | Checkpoint state differs on fresh :memory: DBs | `PRAGMA wal_checkpoint;` |
+| `spider:dev:concert_singer:16` | result_mismatch | known_issue | [#5545](https://github.com/tursodatabase/turso/issues/5545) | open | `min_max_bare_column` | Single min()/max() with bare columns: SQLite returns bare values from the row containing the extremum; Turso picks another row (often the first). | `select max(capacity), average from stadium;` |
+| `spider:dev:course_teach:399` | result_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT T3.Name , T2.Course FROM course_arrange AS T1 JOIN course AS T2 ON T1.Course_ID = T2.Course_ID JOIN teacher AS T3…` |
+| `spider:dev:course_teach:403` | result_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT T3.Name FROM course_arrange AS T1 JOIN course AS T2 ON T1.Course_ID = T2.Course_ID JOIN teacher AS T3 ON T1.Teach…` |
+| `spider:dev:museum_visit:421` | result_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT t2.Museum_ID , t1.name FROM museum AS t1 JOIN visit AS t2 ON t1.Museum_ID = t2.Museum_ID GROUP BY t2.Museum_ID OR…` |
+| `spider:dev:network_1:906` | result_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT T2.name FROM Likes AS T1 JOIN Highschooler AS T2 ON T1.student_id = T2.id GROUP BY T1.student_id ORDER BY count(*…` |
+| `spider:dev:voter_1:698` | result_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT T1.area_code FROM area_code_state AS T1 JOIN votes AS T2 ON T1.state = T2.state GROUP BY T1.area_code ORDER BY co…` |
+| `spider:dev:world_1:784` | result_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT DISTINCT T2.Name FROM country AS T1 JOIN city AS T2 ON T2.CountryCode = T1.Code WHERE T1.Continent = 'Europe' AND…` |
+| `spider:dev:world_1:816` | result_mismatch | known_issue | [#5545](https://github.com/tursodatabase/turso/issues/5545) | open | `min_max_bare_column` | Single min()/max() with bare columns: SQLite returns bare values from the row containing the extremum; Turso picks another row (often the first). | `SELECT LANGUAGE , CountryCode , max(Percentage) FROM countrylanguage GROUP BY CountryCode;` |
+| `spider:train:allergy_1:447` | result_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT DISTINCT allergy FROM Allergy_type WHERE allergytype = "food";` |
+| `spider:train:bike_1:155` | result_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT T1.id FROM trip AS T1 JOIN weather AS T2 ON T1.zip_code = T2.zip_code GROUP BY T2.zip_code HAVING avg(T2.mean_tem…` |
+| `spider:train:store_1:545` | result_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT T1.first_name , T1.last_name , COUNT(*) FROM customers AS T1 JOIN invoices AS T2 ON T2.customer_id = T1.id GROUP …` |
+| `spider:train:store_1:547` | result_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT T1.first_name , T1.last_name , SUM(T2.total) FROM customers AS T1 JOIN invoices AS T2 ON T2.customer_id = T1.id G…` |
+| `spider:train:student_assessment:77` | result_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `SELECT T1.student_details FROM students AS T1 JOIN student_course_registrations AS T2 ON T1.student_id = T2.student_id G…` |
+| `tpl:create_table:1` | error_message_mismatch | actionable | — | — | — | No COMPAT.md entry; worth investigating | `CREATE TABLE tt (a INT NOT NULL, b TEXT); INSERT INTO tt DEFAULT VALUES; SELECT count(*) FROM tt;` |
