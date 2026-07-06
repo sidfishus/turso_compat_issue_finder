@@ -52,3 +52,21 @@ problems:
       - fn:json_replace
       - fn:jsonb_insert
       - fn:jsonb_replace
+
+  jsonb_patch_not_callable:
+    issue: 7764
+    status: open
+    summary: >
+      jsonb_patch() fails at parse time with "no such function" though listed in
+      pragma_function_list and marked supported in COMPAT.md.
+    cases:
+      - fn:jsonb_patch
+
+  join_forward_reference_on:
+    issue: 7765
+    status: open
+    summary: >
+      JOIN ON clause rejects forward-referenced table aliases that SQLite accepts;
+      Turso errors with "no such table" at parse time.
+    cases:
+      - spider:train:college_3:4697
